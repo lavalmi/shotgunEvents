@@ -142,6 +142,22 @@ class Config(ConfigParser.ConfigParser):
     def getEngineScriptKey(self):
         return self.get('shotgun', 'key')
 
+    def getCredentials(self):
+        if self.get('shotgun', 'password'):
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'login': self.get('shotgun', 'name'),
+                'password': self.get('shotgun', 'password'),
+                'http_proxy': self.getEngineProxyServer()
+            }
+        else:
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'script_name': self.get('shotgun', 'name'),
+                'api_key': self.get('shotgun', 'key'),
+                'http_proxy': self.getEngineProxyServer()
+            }
+
     def getEngineProxyServer(self):
         try:
             proxy_server = self.get('shotgun', 'proxy_server').strip()
@@ -242,12 +258,7 @@ class Engine(object):
 
         # Get config values
         self._pluginCollections = [PluginCollection(self, s) for s in self.config.getPluginPaths()]
-        self._sg = sg.Shotgun(
-            self.config.getShotgunURL(),
-            self.config.getEngineScriptName(),
-            self.config.getEngineScriptKey(),
-            http_proxy=self.config.getEngineProxyServer()
-        )
+        self._sg = sg.Shotgun(**self.config.getCredentials())
         self._max_conn_retries = self.config.getint('daemon', 'max_conn_retries')
         self._conn_retry_sleep = self.config.getint('daemon', 'conn_retry_sleep')
         self._fetch_interval = self.config.getint('daemon', 'fetch_interval')
@@ -759,13 +770,16 @@ class Plugin(object):
             self._engine.log.critical('Did not find a registerCallbacks function in plugin at %s.', self._path)
             self._active = False
 
-    def registerCallback(self, sgScriptName, sgScriptKey, callback, matchEvents=None, args=None, stopOnError=True):
+    def registerCallback(self, sgScriptName, sgScriptKey, callback, matchEvents=None, args=None, stopOnError=True, sgConnection=None):
         """
         Register a callback in the plugin.
         """
-        global sg
-        sgConnection = sg.Shotgun(self._engine.config.getShotgunURL(), sgScriptName, sgScriptKey, 
-                                  http_proxy=self._engine.config.getEngineProxyServer())
+        sgConnection = sgConnection or sg.Shotgun(
+            self._engine.config.getShotgunURL(),
+            sgScriptName,
+            sgScriptKey,
+            http_proxy=self._engine.config.getEngineProxyServer()
+        )
         self._callbacks.append(Callback(callback, self, self._engine, sgConnection, matchEvents, args, stopOnError))
 
     def process(self, event):
