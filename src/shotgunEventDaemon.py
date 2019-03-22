@@ -770,13 +770,16 @@ class Plugin(object):
             self._engine.log.critical('Did not find a registerCallbacks function in plugin at %s.', self._path)
             self._active = False
 
-    def registerCallback(self, sgScriptName, sgScriptKey, callback, matchEvents=None, args=None, stopOnError=True):
+    def registerCallback(self, sgScriptName, sgScriptKey, callback, matchEvents=None, args=None, stopOnError=True, sgConnection=None):
         """
         Register a callback in the plugin.
         """
-        global sg
-        sgConnection = sg.Shotgun(self._engine.config.getShotgunURL(), sgScriptName, sgScriptKey, 
-                                  http_proxy=self._engine.config.getEngineProxyServer())
+        sgConnection = sgConnection or sg.Shotgun(
+            self._engine.config.getShotgunURL(),
+            sgScriptName,
+            sgScriptKey,
+            http_proxy=self._engine.config.getEngineProxyServer()
+        )
         self._callbacks.append(Callback(callback, self, self._engine, sgConnection, matchEvents, args, stopOnError))
 
     def process(self, event):
