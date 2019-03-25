@@ -132,13 +132,6 @@ class Config(ConfigParser.ConfigParser):
     def __init__(self, path):
         ConfigParser.ConfigParser.__init__(self)
         self.read(path)
-        # added to handle login credentials for mail more secure
-        lava_mail_config = ConfigParser.ConfigParser()
-        lava_mail_config.read('g:/globals/pipelineConfigs/mail')
-
-        self.server = lava_mail_config.get('pipeline_mail', 'server')
-        self.addr = lava_mail_config.get('pipeline_mail', 'addr')
-        self.pw = lava_mail_config.get('pipeline_mail', 'pw')
 
     def getShotgunURL(self):
         return self.get('shotgun', 'server')
@@ -184,7 +177,7 @@ class Config(ConfigParser.ConfigParser):
         return [s.strip() for s in self.get('plugins', 'paths').split(',')]
 
     def getSMTPServer(self):
-        return self.server
+        return self.get('emails', 'server')
 
     def getSMTPPort(self):
         if self.has_option('emails', 'port'):
@@ -192,19 +185,23 @@ class Config(ConfigParser.ConfigParser):
         return 25
 
     def getFromAddr(self):
-        return self.addr
+        return self.get('emails', 'from')
 
     def getToAddrs(self):
-        return self.addr
+        return [s.strip() for s in self.get('emails', 'to').split(',')]
 
     def getEmailSubject(self):
         return self.get('emails', 'subject')
 
     def getEmailUsername(self):
-        return self.addr
+        if self.has_option('emails', 'username'):
+            return self.get('emails', 'username')
+        return None
 
     def getEmailPassword(self):
-        return self.pw
+        if self.has_option('emails', 'password'):
+            return self.get('emails', 'password')
+        return None
 
     def getSecureSMTP(self):
         if self.has_option('emails', 'useTLS'):
