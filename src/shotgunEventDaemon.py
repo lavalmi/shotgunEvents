@@ -1166,7 +1166,7 @@ class LinuxDaemon(daemonizer.Daemon):
 def main():
     """
     """
-    action = None
+    action = 'foreground'
     if len(sys.argv) > 1:
         action = sys.argv[1]
 
