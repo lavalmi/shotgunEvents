@@ -132,6 +132,13 @@ class Config(ConfigParser.ConfigParser):
     def __init__(self, path):
         ConfigParser.ConfigParser.__init__(self)
         self.read(path)
+        # added to handle login credentials for mail more secure
+        lava_mail_config = ConfigParser.ConfigParser()
+        lava_mail_config.read('g:/globals/pipelineConfigs/mail')
+
+        self.server = lava_mail_config.get('pipeline_mail', 'server')
+        self.addr = lava_mail_config.get('pipeline_mail', 'addr')
+        self.pw = lava_mail_config.get('pipeline_mail', 'pw')
 
     def getShotgunURL(self):
         return self.get('shotgun', 'server')
@@ -141,6 +148,22 @@ class Config(ConfigParser.ConfigParser):
 
     def getEngineScriptKey(self):
         return self.get('shotgun', 'key')
+
+    def getCredentials(self):
+        if self.get('shotgun', 'password'):
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'login': self.get('shotgun', 'name'),
+                'password': self.get('shotgun', 'password'),
+                'http_proxy': self.getEngineProxyServer()
+            }
+        else:
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'script_name': self.get('shotgun', 'name'),
+                'api_key': self.get('shotgun', 'key'),
+                'http_proxy': self.getEngineProxyServer()
+            }
 
     def getEngineProxyServer(self):
         try:
@@ -161,7 +184,7 @@ class Config(ConfigParser.ConfigParser):
         return [s.strip() for s in self.get('plugins', 'paths').split(',')]
 
     def getSMTPServer(self):
-        return self.get('emails', 'server')
+        return self.server
 
     def getSMTPPort(self):
         if self.has_option('emails', 'port'):
@@ -169,23 +192,19 @@ class Config(ConfigParser.ConfigParser):
         return 25
 
     def getFromAddr(self):
-        return self.get('emails', 'from')
+        return self.addr
 
     def getToAddrs(self):
-        return [s.strip() for s in self.get('emails', 'to').split(',')]
+        return self.addr
 
     def getEmailSubject(self):
         return self.get('emails', 'subject')
 
     def getEmailUsername(self):
-        if self.has_option('emails', 'username'):
-            return self.get('emails', 'username')
-        return None
+        return self.addr
 
     def getEmailPassword(self):
-        if self.has_option('emails', 'password'):
-            return self.get('emails', 'password')
-        return None
+        return self.pw
 
     def getSecureSMTP(self):
         if self.has_option('emails', 'useTLS'):
@@ -242,12 +261,7 @@ class Engine(object):
 
         # Get config values
         self._pluginCollections = [PluginCollection(self, s) for s in self.config.getPluginPaths()]
-        self._sg = sg.Shotgun(
-            self.config.getShotgunURL(),
-            self.config.getEngineScriptName(),
-            self.config.getEngineScriptKey(),
-            http_proxy=self.config.getEngineProxyServer()
-        )
+        self._sg = sg.Shotgun(**self.config.getCredentials())
         self._max_conn_retries = self.config.getint('daemon', 'max_conn_retries')
         self._conn_retry_sleep = self.config.getint('daemon', 'conn_retry_sleep')
         self._fetch_interval = self.config.getint('daemon', 'fetch_interval')
@@ -759,13 +773,16 @@ class Plugin(object):
             self._engine.log.critical('Did not find a registerCallbacks function in plugin at %s.', self._path)
             self._active = False
 
-    def registerCallback(self, sgScriptName, sgScriptKey, callback, matchEvents=None, args=None, stopOnError=True):
+    def registerCallback(self, sgScriptName, sgScriptKey, callback, matchEvents=None, args=None, stopOnError=True, sgConnection=None):
         """
         Register a callback in the plugin.
         """
-        global sg
-        sgConnection = sg.Shotgun(self._engine.config.getShotgunURL(), sgScriptName, sgScriptKey, 
-                                  http_proxy=self._engine.config.getEngineProxyServer())
+        sgConnection = sgConnection or sg.Shotgun(
+            self._engine.config.getShotgunURL(),
+            sgScriptName,
+            sgScriptKey,
+            http_proxy=self._engine.config.getEngineProxyServer()
+        )
         self._callbacks.append(Callback(callback, self, self._engine, sgConnection, matchEvents, args, stopOnError))
 
     def process(self, event):
@@ -1149,7 +1166,7 @@ class LinuxDaemon(daemonizer.Daemon):
 def main():
     """
     """
-    action = None
+    action = 'foreground'
     if len(sys.argv) > 1:
         action = sys.argv[1]
 
@@ -1176,6 +1193,11 @@ def _getConfigPath():
     """
     Get the path of the shotgunEventDaemon configuration file.
     """
+
+    path = os.environ.get('SHOTGUN_EVENT_DEAMON_CONFIG', '')
+    if path and os.path.exists(path):
+        return path
+
     paths = ['/etc', os.path.dirname(__file__)]
 
     # Get the current path of the daemon script
