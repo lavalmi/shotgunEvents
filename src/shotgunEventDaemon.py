@@ -49,11 +49,16 @@ import six.moves.cPickle as pickle
 
 from distutils.version import StrictVersion
 
-if sys.platform == "win32":
-    import win32serviceutil
-    import win32service
-    import win32event
-    import servicemanager
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+# if sys.platform == 'win32':
+#     import win32serviceutil
+#     import win32service
+#     import win32event
+#     import servicemanager
 
 import daemonizer
 import shotgun_api3 as sg
@@ -154,6 +159,22 @@ class Config(configparser.SafeConfigParser):
     def getEngineScriptKey(self):
         return self.get("shotgun", "key")
 
+    def getCredentials(self):
+        if self.get('shotgun', 'password'):
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'login': self.get('shotgun', 'name'),
+                'password': self.get('shotgun', 'password'),
+                'http_proxy': self.getEngineProxyServer()
+            }
+        else:
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'script_name': self.get('shotgun', 'name'),
+                'api_key': self.get('shotgun', 'key'),
+                'http_proxy': self.getEngineProxyServer()
+            }
+
     def getEngineProxyServer(self):
         try:
             proxy_server = self.get("shotgun", "proxy_server").strip()
@@ -173,7 +194,7 @@ class Config(configparser.SafeConfigParser):
         return [s.strip() for s in self.get("plugins", "paths").split(",")]
 
     def getSMTPServer(self):
-        return self.get("emails", "server")
+        return self.get('emails', 'server')
 
     def getSMTPPort(self):
         if self.has_option("emails", "port"):
@@ -181,22 +202,22 @@ class Config(configparser.SafeConfigParser):
         return 25
 
     def getFromAddr(self):
-        return self.get("emails", "from")
+        return self.get('emails', 'from')
 
     def getToAddrs(self):
-        return [s.strip() for s in self.get("emails", "to").split(",")]
+        return [s.strip() for s in self.get('emails', 'to').split(',')]
 
     def getEmailSubject(self):
         return self.get("emails", "subject")
 
     def getEmailUsername(self):
-        if self.has_option("emails", "username"):
-            return self.get("emails", "username")
+        if self.has_option('emails', 'username'):
+            return self.get('emails', 'username')
         return None
 
     def getEmailPassword(self):
-        if self.has_option("emails", "password"):
-            return self.get("emails", "password")
+        if self.has_option('emails', 'password'):
+            return self.get('emails', 'password')
         return None
 
     def getSecureSMTP(self):
@@ -1258,45 +1279,43 @@ class ConfigError(EventDaemonError):
     pass
 
 
-if sys.platform == "win32":
-
-    class WindowsService(win32serviceutil.ServiceFramework):
-        """
-        Windows service wrapper
-        """
-
-        _svc_name_ = "ShotgunEventDaemon"
-        _svc_display_name_ = "Shotgun Event Handler"
-
-        def __init__(self, args):
-            win32serviceutil.ServiceFramework.__init__(self, args)
-            self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-            self._engine = Engine(_getConfigPath())
-
-        def SvcStop(self):
-            """
-            Stop the Windows service.
-            """
-            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-            win32event.SetEvent(self.hWaitStop)
-            self._engine.stop()
-
-        def SvcDoRun(self):
-            """
-            Start the Windows service.
-            """
-            servicemanager.LogMsg(
-                servicemanager.EVENTLOG_INFORMATION_TYPE,
-                servicemanager.PYS_SERVICE_STARTED,
-                (self._svc_name_, ""),
-            )
-            self.main()
-
-        def main(self):
-            """
-            Primary Windows entry point
-            """
-            self._engine.start()
+# if sys.platform == 'win32':
+#     class WindowsService(win32serviceutil.ServiceFramework):
+#         """
+#         Windows service wrapper
+#         """
+#         _svc_name_ = "ShotgunEventDaemon"
+#         _svc_display_name_ = "Shotgun Event Handler"
+#
+#         def __init__(self, args):
+#             win32serviceutil.ServiceFramework.__init__(self, args)
+#             self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
+#             self._engine = Engine(_getConfigPath())
+#
+#         def SvcStop(self):
+#             """
+#             Stop the Windows service.
+#             """
+#             self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+#             win32event.SetEvent(self.hWaitStop)
+#             self._engine.stop()
+#
+#         def SvcDoRun(self):
+#             """
+#             Start the Windows service.
+#             """
+#             servicemanager.LogMsg(
+#                 servicemanager.EVENTLOG_INFORMATION_TYPE,
+#                 servicemanager.PYS_SERVICE_STARTED,
+#                 (self._svc_name_, '')
+#             )
+#             self.main()
+#
+#         def main(self):
+#             """
+#             Primary Windows entry point
+#             """
+#             self._engine.start()
 
 
 class LinuxDaemon(daemonizer.Daemon):
@@ -1344,9 +1363,9 @@ def main():
     if len(sys.argv) > 1:
         action = sys.argv[1]
 
-    if sys.platform == "win32" and action != "foreground":
-        win32serviceutil.HandleCommandLine(WindowsService)
-        return 0
+    # if sys.platform == 'win32' and action != 'foreground':
+    #     win32serviceutil.HandleCommandLine(WindowsService)
+    #     return 0
 
     if action:
         daemon = LinuxDaemon()
