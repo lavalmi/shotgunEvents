@@ -49,11 +49,11 @@ import six.moves.cPickle as pickle
 
 from distutils.version import StrictVersion
 
-if sys.platform == "win32":
-    import win32serviceutil
-    import win32service
-    import win32event
-    import servicemanager
+# if sys.platform == 'win32':
+#     import win32serviceutil
+#     import win32service
+#     import win32event
+#     import servicemanager
 
 import daemonizer
 import shotgun_api3 as sg
@@ -1258,45 +1258,45 @@ class ConfigError(EventDaemonError):
     pass
 
 
-if sys.platform == "win32":
-
-    class WindowsService(win32serviceutil.ServiceFramework):
-        """
-        Windows service wrapper
-        """
-
-        _svc_name_ = "ShotgunEventDaemon"
-        _svc_display_name_ = "Shotgun Event Handler"
-
-        def __init__(self, args):
-            win32serviceutil.ServiceFramework.__init__(self, args)
-            self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-            self._engine = Engine(_getConfigPath())
-
-        def SvcStop(self):
-            """
-            Stop the Windows service.
-            """
-            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-            win32event.SetEvent(self.hWaitStop)
-            self._engine.stop()
-
-        def SvcDoRun(self):
-            """
-            Start the Windows service.
-            """
-            servicemanager.LogMsg(
-                servicemanager.EVENTLOG_INFORMATION_TYPE,
-                servicemanager.PYS_SERVICE_STARTED,
-                (self._svc_name_, ""),
-            )
-            self.main()
-
-        def main(self):
-            """
-            Primary Windows entry point
-            """
-            self._engine.start()
+# if sys.platform == "win32":
+#
+#     class WindowsService(win32serviceutil.ServiceFramework):
+#         """
+#         Windows service wrapper
+#         """
+#
+#         _svc_name_ = "ShotgunEventDaemon"
+#         _svc_display_name_ = "Shotgun Event Handler"
+#
+#         def __init__(self, args):
+#             win32serviceutil.ServiceFramework.__init__(self, args)
+#             self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
+#             self._engine = Engine(_getConfigPath())
+#
+#         def SvcStop(self):
+#             """
+#             Stop the Windows service.
+#             """
+#             self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+#             win32event.SetEvent(self.hWaitStop)
+#             self._engine.stop()
+#
+#         def SvcDoRun(self):
+#             """
+#             Start the Windows service.
+#             """
+#             servicemanager.LogMsg(
+#                 servicemanager.EVENTLOG_INFORMATION_TYPE,
+#                 servicemanager.PYS_SERVICE_STARTED,
+#                 (self._svc_name_, ""),
+#             )
+#             self.main()
+#
+#         def main(self):
+#             """
+#             Primary Windows entry point
+#             """
+#             self._engine.start()
 
 
 class LinuxDaemon(daemonizer.Daemon):
@@ -1344,9 +1344,9 @@ def main():
     if len(sys.argv) > 1:
         action = sys.argv[1]
 
-    if sys.platform == "win32" and action != "foreground":
-        win32serviceutil.HandleCommandLine(WindowsService)
-        return 0
+    # if sys.platform == 'win32' and action != 'foreground':
+    #     win32serviceutil.HandleCommandLine(WindowsService)
+    #     return 0
 
     if action:
         daemon = LinuxDaemon()
