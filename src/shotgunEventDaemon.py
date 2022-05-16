@@ -1367,7 +1367,12 @@ def _getConfigPath():
     """
     Get the path of the shotgunEventDaemon configuration file.
     """
-    paths = ["/etc", os.path.dirname(__file__)]
+
+    path = os.environ.get('SHOTGUN_EVENT_DEAMON_CONFIG', '')
+    if path and os.path.exists(path):
+        return path
+
+    paths = ['/etc', os.path.dirname(__file__)]
 
     # Get the current path of the daemon script
     scriptPath = sys.argv[0]
