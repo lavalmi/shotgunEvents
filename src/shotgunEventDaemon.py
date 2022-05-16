@@ -1340,7 +1340,7 @@ def main():
         )
         return 3
 
-    action = None
+    action = 'foreground'
     if len(sys.argv) > 1:
         action = sys.argv[1]
 
