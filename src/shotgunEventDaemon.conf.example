@@ -75,6 +75,9 @@ name: %(SG_ED_SCRIPT_NAME)s
 # this random useless key with the one corresponding to the script you've setup.
 key: %(SG_ED_API_KEY)s
 
+# With the password setting enabled, the deamon will connect with user credentials. With the name as login.
+# password: 123password
+
 # The address of the proxy server used to connect to your Shotgun server
 # in the format 111.222.333.444:8080. Leave this empty if you don't have
 # a proxy server.
