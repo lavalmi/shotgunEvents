@@ -142,7 +142,7 @@ def _addMailHandlerToLogger(
 
 class Config(configparser.ConfigParser):
     def __init__(self, path):
-        configparser.SafeConfigParser.__init__(self, os.environ)
+        super(Config, self).__init__(os.environ)
         self.read(path)
         # added to handle login credentials for mail more secure
         lava_mail_config = configparser.ConfigParser()
