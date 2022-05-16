@@ -870,12 +870,13 @@ class Plugin(object):
         matchEvents=None,
         args=None,
         stopOnError=True,
+        sgConnection=None
     ):
         """
         Register a callback in the plugin.
         """
         global sg
-        sgConnection = sg.Shotgun(
+        sgConnection = sgConnection or sg.Shotgun(
             self._engine.config.getShotgunURL(),
             sgScriptName,
             sgScriptKey,
