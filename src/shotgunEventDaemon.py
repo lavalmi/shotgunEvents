@@ -144,6 +144,13 @@ class Config(configparser.SafeConfigParser):
     def __init__(self, path):
         configparser.SafeConfigParser.__init__(self, os.environ)
         self.read(path)
+        # added to handle login credentials for mail more secure
+        lava_mail_config = configparser.ConfigParser()
+        lava_mail_config.read('g:/globals/pipelineConfigs/mail')
+
+        self.server = lava_mail_config.get('pipeline_mail', 'server')
+        self.addr = lava_mail_config.get('pipeline_mail', 'addr')
+        self.pw = lava_mail_config.get('pipeline_mail', 'pw')
 
     def getShotgunURL(self):
         return self.get("shotgun", "server")
@@ -153,6 +160,25 @@ class Config(configparser.SafeConfigParser):
 
     def getEngineScriptKey(self):
         return self.get("shotgun", "key")
+
+    def getCredentials(self):
+        try:
+            data = self.get('shotgun', 'password')
+            if not data:
+                raise configparser.NoOptionError('shotgun', 'password')
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'login': self.get('shotgun', 'name'),
+                'password': self.get('shotgun', 'password'),
+                'http_proxy': self.getEngineProxyServer(),
+            }
+        except configparser.NoOptionError:
+            return {
+                'base_url': self.get('shotgun', 'server'),
+                'script_name': self.get('shotgun', 'name'),
+                'api_key': self.get('shotgun', 'key'),
+                'http_proxy': self.getEngineProxyServer()
+            }
 
     def getEngineProxyServer(self):
         try:
@@ -173,7 +199,7 @@ class Config(configparser.SafeConfigParser):
         return [s.strip() for s in self.get("plugins", "paths").split(",")]
 
     def getSMTPServer(self):
-        return self.get("emails", "server")
+        return self.server
 
     def getSMTPPort(self):
         if self.has_option("emails", "port"):
@@ -181,23 +207,19 @@ class Config(configparser.SafeConfigParser):
         return 25
 
     def getFromAddr(self):
-        return self.get("emails", "from")
+        return self.addr
 
     def getToAddrs(self):
-        return [s.strip() for s in self.get("emails", "to").split(",")]
+        return self.addr
 
     def getEmailSubject(self):
         return self.get("emails", "subject")
 
     def getEmailUsername(self):
-        if self.has_option("emails", "username"):
-            return self.get("emails", "username")
-        return None
+        return self.addr
 
     def getEmailPassword(self):
-        if self.has_option("emails", "password"):
-            return self.get("emails", "password")
-        return None
+        return self.pw
 
     def getSecureSMTP(self):
         if self.has_option("emails", "useTLS"):
@@ -267,12 +289,7 @@ class Engine(object):
         self._pluginCollections = [
             PluginCollection(self, s) for s in self.config.getPluginPaths()
         ]
-        self._sg = sg.Shotgun(
-            self.config.getShotgunURL(),
-            self.config.getEngineScriptName(),
-            self.config.getEngineScriptKey(),
-            http_proxy=self.config.getEngineProxyServer(),
-        )
+        self._sg = sg.Shotgun(**self.config.getCredentials())
         self._max_conn_retries = self.config.getint("daemon", "max_conn_retries")
         self._conn_retry_sleep = self.config.getint("daemon", "conn_retry_sleep")
         self._fetch_interval = self.config.getint("daemon", "fetch_interval")
