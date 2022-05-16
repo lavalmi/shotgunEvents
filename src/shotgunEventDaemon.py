@@ -140,7 +140,7 @@ def _addMailHandlerToLogger(
         logger.addHandler(mailHandler)
 
 
-class Config(configparser.SafeConfigParser):
+class Config(configparser.ConfigParser):
     def __init__(self, path):
         configparser.SafeConfigParser.__init__(self, os.environ)
         self.read(path)
