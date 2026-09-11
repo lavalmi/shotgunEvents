@@ -48,6 +48,8 @@ from six.moves import configparser
 import six.moves.cPickle as pickle
 
 from distutils.version import StrictVersion
+from create_ticket import create_ticket
+
 
 # if sys.platform == 'win32':
 #     import win32serviceutil
@@ -138,6 +140,21 @@ def _addMailHandlerToLogger(
         mailHandler.setFormatter(mailFormatter)
 
         logger.addHandler(mailHandler)
+
+
+class HelpdeskTicketHandler(logging.Handler):
+    """Create a helpdesk ticket for critical daemon log records."""
+
+    def emit(self, record):
+        try:
+            create_ticket(
+                "CRITICAL - SG event daemon",
+                self.format(record),
+            )
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            self.handleError(record)
 
 
 class Config(configparser.ConfigParser):
@@ -328,7 +345,9 @@ class Engine(object):
 
     def setEmailsOnLogger(self, logger, emails):
         # Configure the logger for email output
-        _removeHandlersFromLogger(logger, logging.handlers.SMTPHandler)
+        _removeHandlersFromLogger(
+            logger, (logging.handlers.SMTPHandler, HelpdeskTicketHandler)
+        )
 
         if emails is False:
             return
@@ -362,6 +381,11 @@ class Engine(object):
             password,
             secure,
         )
+
+        helpdeskHandler = HelpdeskTicketHandler()
+        helpdeskHandler.setLevel(logging.CRITICAL)
+        helpdeskHandler.setFormatter(logging.Formatter(EMAIL_FORMAT_STRING))
+        logger.addHandler(helpdeskHandler)
 
     def start(self):
         """
