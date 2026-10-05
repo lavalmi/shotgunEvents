@@ -48,7 +48,7 @@ from six.moves import configparser
 import six.moves.cPickle as pickle
 
 from distutils.version import StrictVersion
-from create_ticket import create_ticket
+from create_ticket import create_ticket, format_error_ticket, ERROR_TICKET_SUBJECT
 
 
 # if sys.platform == 'win32':
@@ -102,7 +102,7 @@ def _removeHandlersFromLogger(logger, handlerTypes=None):
     @type handlerTypes: L{None}, a logging.Handler subclass or
         I{list}/I{tuple} of logging.Handler subclasses.
     """
-    for handler in logger.handlers:
+    for handler in logger.handlers[:]:
         if handlerTypes is None or isinstance(handler, handlerTypes):
             logger.removeHandler(handler)
 
@@ -147,10 +147,13 @@ class HelpdeskTicketHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            create_ticket(
-                "CRITICAL - SG event daemon",
-                self.format(record),
-            )
+            error_details = self.format(record)
+            try:
+                subject, body = format_error_ticket(record, error_details)
+            except Exception:
+                # A summary failure must not prevent delivery of the original log.
+                subject, body = ERROR_TICKET_SUBJECT, error_details
+            create_ticket(subject, body)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
@@ -411,7 +414,10 @@ class Engine(object):
             self.log.warning("Keyboard interrupt. Cleaning up...")
         except Exception as err:
             msg = "Crash!!!!! Unexpected error (%s) in main loop.\n\n%s"
-            self.log.critical(msg, type(err), traceback.format_exc(err))
+            self.log.critical(
+                msg, type(err), traceback.format_exc(),
+                extra={"exception_type": type(err).__name__},
+            )
 
     def _loadEventIdData(self):
         """
@@ -895,6 +901,7 @@ class Plugin(object):
                     "Error running register callback function from plugin at %s.\n\n%s",
                     self._path,
                     traceback.format_exc(),
+                    extra={"exception_type": sys.exc_info()[0].__name__},
                 )
                 self._active = False
         else:
@@ -1159,7 +1166,12 @@ class Callback(object):
 
             msg = "An error occured processing an event.\n\n%s\n\nLocal variables at outer most frame in plugin:\n\n%s"
             self._logger.critical(
-                msg, traceback.format_exc(), pprint.pformat(stack[1].f_locals)
+                msg, traceback.format_exc(),
+                pprint.pformat(stack[min(1, len(stack) - 1)].f_locals),
+                extra={
+                    "shotgrid_event": event,
+                    "exception_type": sys.exc_info()[0].__name__,
+                },
             )
             if self._stopOnError:
                 self._active = False
